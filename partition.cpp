@@ -398,6 +398,14 @@ int main(int argc, char* argv[]) {
         printf("Prepartition Hill-Climbing: %llu\n", hill_climbing_prepartition(input));            // :)
         printf("Prepartition Simulated Annealing: %llu\n", simulated_annealing_prepartition(input));// :D
         return 0;
+
+
+        int iters = 1;
+        std::ofstream file;
+        file.open("data.csv");
+        file << "Karmarkar-Karp,Repeated Random,Hill-Climbing,Annealing,PP Repeated Random,PP Hill-ClimbingPP Simulated Annealing\n";
+
+
     }
 
     // else run specified algorithm according to:
