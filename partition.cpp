@@ -68,36 +68,37 @@ uint32_t binary_insert(std::vector<uint64_t> nums, uint64_t val, uint32_t lh, ui
 }
 
 uint64_t karmarkar_karp(std::vector<uint64_t> nums) {
+    // sort nums -> O(nlog(n))
     std::vector<uint64_t> sorted = merge_sort(nums);
+
+    // for each n, remove largest 2 and insert difference using binary heap
+    // O(nlog(n)) if using binary heap
     while (sorted.size() > 2) {
+        // pull largest two
+        // TODO CHANGE
         uint64_t t1 = sorted.at(sorted.size() - 1);
         uint64_t t2 = sorted.at(sorted.size() - 2);
         sorted.pop_back();
         sorted.pop_back();
 
+        // find difference
         t1 -= t2;
-        /*printf("%i\n", sorted.size());
-        for (auto element : sorted) {
-            std::cout << element << " ";
-        }
-        std::cout << '\n';*/
 
-        uint32_t n = binary_insert(sorted, t1, 0, sorted.size()); // :()
-        // printf("%i\n", n);
+        // insert into binary heap
+        // TODO CHANGE
+        uint32_t n = binary_insert(sorted, t1, 0, sorted.size());
         if (n != sorted.size()) {
             auto it = sorted.begin() + n;
             sorted.insert(it, t1);
         } else {
             sorted.push_back(t1);
         }
-        /*for (auto element : sorted) {
-            std::cout << element << " ";
-        }
-        std::cout << '\n';*/
     }
+    // return difference of last two values
     return sorted.at(1) - sorted.at(0);
 }
 
+// print vector of booleans as 1s and 0s
 void print(std::vector<bool> a) {
     for (uint32_t i = 0; i < a.size(); i++) {
         printf("%i ", a[i] ? 1 : 0);
@@ -105,86 +106,78 @@ void print(std::vector<bool> a) {
     printf("\n");
 }
 
+// Calculate residue for non-prepartition algorithms
+// sum over elements of nums[i] * S[i]
 uint64_t residue(std::vector<uint64_t> nums, std::vector<bool> S) {
+    // declare running sum of value for both groups
     uint64_t sums = 0;
     uint64_t suml = 0;
-    //print(S);
-    for (uint32_t i = 0; i < nums.size(); ++i) {
-        // sum += (S.at(i)) ? nums.at(i) : -1 * nums.at(i);
-        if (S.at(i)) {
-            sums += nums.at(i);
-        } else {
-            suml += nums.at(i);
-        }
-        //printf("sum: %llu\n", sum);
-    }
 
+    for (uint32_t i = 0; i < nums.size(); ++i) {
+        if (S.at(i)) {
+            sums += nums.at(i); // if positive, add to sums
+        } else {
+            suml += nums.at(i); // if negative, add to suml
+        }
+    }
+    // return difference with respect to unsigned largest
     return (sums > suml) ? (sums - suml) : (suml - sums);
 }
 
-uint64_t repeated_random_signs(std::vector<uint64_t> nums) {
-    // true = +1
-    // false = -1
-   
+std::vector<bool> generate_random_sol(uint32_t size) {
+    // randomly generate a list of size size
     std::vector<bool> S;
-       
-    const int size = nums.size();
-
     for (uint32_t i = 0; i < size; ++i) {
         S.push_back((gen() % 2 == 0));
     }
+    return S;
+}
 
+uint64_t repeated_random_signs(std::vector<uint64_t> nums) {
+    const uint32_t size = nums.size();
+
+    // generate random solution S
+    std::vector<bool> S = generate_random_sol(size);
     uint64_t current_residue = residue(nums, S);
-    //std::cout << current_residue << '\n';
     
     for (uint32_t i = 0; i < MAX_ITER; i++)
     {
-        std::vector<bool> S_prime;
-        for (uint32_t i = 0; i < size; ++i) {
-            S_prime.push_back((gen() % 2 == 0));
-        }
+        // generate random solution S_prime
+        std::vector<bool> S_prime = generate_random_sol(size);
         uint64_t prime_residue = residue(nums, S_prime);
+
+        // compare S and S_prime, if S_prime better -> S = S_prime
         if (prime_residue < current_residue)
         {
             S = S_prime;
             current_residue = prime_residue;
         }
     }
-
-    // for (auto element : S) {
-    //     std::cout << element << " ";
-    // }
-    // std::cout << '\n';
-
     return current_residue;
 }
 
-
-
 uint64_t hill_climbing_signs(std::vector<uint64_t> nums) {
-    std::vector<bool> S;
-       
-    for (uint32_t i = 0; i < nums.size(); ++i) {
-        S.push_back((gen() % 2 == 0));
-    }
+    const uint32_t size = nums.size();
 
+    // generate random solution S
+    std::vector<bool> S = generate_random_sol(size);
     uint64_t current_residue = residue(nums, S);
+
     for (uint32_t i = 0; i < MAX_ITER; i++) {
- 
+        // generate random a, b s.t. a != b
         int a = gen() % nums.size();
         int b = gen() % nums.size();
         while (a == b) {
             b = gen() % nums.size();
         }
 
-        std::vector<bool> S_prime;
-        S_prime = S;
+        // flip S in one place, with 1/2 prob of another
+        std::vector<bool> S_prime = S;
         S_prime.at(a) = !S_prime.at(a);
         S_prime.at(b) = (gen() % 2 == 0) ? S_prime.at(b) : !S_prime.at(b);
-        // printf("S_prime:\n");
-        // print(S_prime);
-
         uint64_t prime_residue = residue(nums, S_prime);
+
+        // compare, if S_prime better than S -> S = S_prime
         if (prime_residue < current_residue)
         {
             S = S_prime;
@@ -199,64 +192,54 @@ double cooling_schedule(uint32_t i) {
 }
 
 uint64_t simulated_annealing_signs(std::vector<uint64_t> nums) {
-    std::vector<bool> S, S_dp;
-       
+    // random distribution
     std::uniform_real_distribution<double> dis(0.0, 1.0);
+    const uint32_t size = nums.size();
 
-    for (uint32_t i = 0; i < nums.size(); ++i) {
-        S.push_back((gen() % 2 == 0));
-    }
-
-    S_dp = S;
-
+    // start with random solutions
+    std::vector<bool> S = generate_random_sol(size), S_dp = S;
     uint64_t current_residue = residue(nums, S);
     uint64_t dp_residue = current_residue;
 
     for (uint32_t i = 0; i < MAX_ITER; i++) {
- 
+        // generate random a, b s.t. a != b
         int a = gen() % nums.size();
         int b = gen() % nums.size();
         while (a == b) {
             b = gen() % nums.size();
         }
 
-        // printf("%i %i\n", a, b);
-
-        std::vector<bool> S_prime;
-        S_prime = S;
+        // random flip at a, with 1/2 of flipping at b
+        std::vector<bool> S_prime = S;
         S_prime.at(a) = !S_prime.at(a);
         S_prime.at(b) = (gen() % 2 == 0) ? S_prime.at(b) : !S_prime.at(b);
-
         uint64_t prime_residue = residue(nums, S_prime);
+
+        // if better, set S = S_prime
         if (prime_residue < current_residue) {
             S = S_prime;
             current_residue = prime_residue;
         } else {
+            // else consider flipping at random according to cooling schedule and difference in residue
             double fn = std::exp(-(((double)(prime_residue - current_residue)) / (cooling_schedule(i))));
-            if (fn != 0.0) {
-                // printf("%f\n", fn);
-            }
             if (dis(gen) < fn) {
-    
-                // printf("idx: %i\n", i);
                 S = S_prime;
                 current_residue = prime_residue;
             }
         }
-        
+        // if S better than S_dp -> S_dp = S
         if (current_residue < dp_residue) {
             S_dp = S;
             dp_residue = current_residue;
         }
     }
+    // return best solution so far
     return dp_residue;
 }
 
 std::vector<uint8_t> generate_prepartition(uint32_t size) {
+    // randomly generate a list of size size
     std::vector<uint8_t> P;
-       
-
-    //int size = nums.size();
     for (uint32_t i = 0; i < size; ++i) {
         P.push_back((uint8_t)(gen() % size));
     }
@@ -266,25 +249,11 @@ std::vector<uint8_t> generate_prepartition(uint32_t size) {
 std::vector<uint64_t> calculate_aprime(std::vector<uint64_t> nums, std::vector<uint8_t> s_nums) {
     // initialize target vector
     std::vector<uint64_t> a_prime(nums.size(), 0);
-    // printf("---\n");
-    // printf("partition\n");
-    // for (int i = 0; i < s_nums.size(); i++) {
-    //     printf("%i ", s_nums[i]);
-    // }
-    // printf("\n");
-    // printf("nums\n");
-    // for (int i = 0; i < nums.size(); i++) {
-    //     printf("%i ", nums[i]);
-    // }
-    // printf("\n");
+
     // populate with values such that p[i] = sum over nums where num[j] = i
     for (uint32_t i = 0; i < nums.size(); i++) {
         a_prime.at(s_nums.at(i)) += nums.at(i);
     }
-    // for (int i = 0; i < a_prime.size(); i++) {
-    //     printf("%i ", a_prime[i]);
-    // }
-    // printf("\n");
 
     // remove zeros
     std::vector<uint64_t> real_a_prime;
@@ -294,11 +263,6 @@ std::vector<uint64_t> calculate_aprime(std::vector<uint64_t> nums, std::vector<u
             real_a_prime.push_back(val);
         }
     }
-
-    // for (int i = 0; i < real_a_prime.size(); i++) {
-    //     printf("%i ", real_a_prime[i]);
-    // }
-    // printf("\n");
 
     return a_prime;
 }
@@ -326,9 +290,6 @@ uint64_t repeated_random_prepartition(std::vector<uint64_t> nums) {
 }
 
 uint64_t hill_climbing_prepartition(std::vector<uint64_t> nums) {
-    // random number generator
-       
-
     // start with random solution P
     std::vector<uint8_t> P = generate_prepartition(nums.size());
     const int size = nums.size();
@@ -360,46 +321,45 @@ uint64_t hill_climbing_prepartition(std::vector<uint64_t> nums) {
 }
 
 uint64_t simulated_annealing_prepartition(std::vector<uint64_t> nums) {
-    std::vector<uint8_t> P, P_dp;
-       
+    const int size = nums.size();
+
+    // random distribution 
     std::uniform_real_distribution<double> dis(0.0, 1.0);
 
-    const int size = nums.size();
+    // start with random solution P set to P_dp
+    std::vector<uint8_t> P, P_dp;
     P = generate_prepartition(size);
     uint64_t current_residue = karmarkar_karp(calculate_aprime(nums, P));
     uint64_t dp_residue = current_residue;
-    
     P_dp = P;
 
+    // Iterate MAX_ITER times
     for (uint32_t i = 0; i < MAX_ITER; i++) {
- 
+        // find random a, b s.t. a != b
         int a = gen() % size;
         int b = gen() % size;
         while (a == b) {
             b = gen() % size;
         }
 
+        // randomly change P_p[a] = b
         std::vector<uint8_t> P_prime = P;
         P_prime.at(a) = b;
         uint64_t prime_residue = karmarkar_karp(calculate_aprime(nums, P_prime));
 
-        //uint64_t prime_residue = residue(nums, S_prime);
+        // if better solution change P
         if (prime_residue < current_residue) {
             P = P_prime;
             current_residue = prime_residue;
         } else {
+            // if not, consider randomly pursuing it anyways
             double fn = std::exp(-(((double)(prime_residue - current_residue)) / (cooling_schedule(i))));
-            if (fn != 0.0) {
-                // printf("%f\n", fn);
-            }
             if (dis(gen) < fn) {
-    
-                // printf("idx: %i\n", i);
                 P = P_prime;
                 current_residue = prime_residue;
             }
         }
-        
+        // if current solution is better, then set P_dp = P, P_dp:best so far
         if (current_residue < dp_residue) {
             P_dp = P;
             dp_residue = current_residue;
@@ -410,29 +370,44 @@ uint64_t simulated_annealing_prepartition(std::vector<uint64_t> nums) {
 
 int main(int argc, char* argv[]) {
     if (argc != 4) {
-        // 0 Karmarkar-Karp
-        // 1 Repeated Random
-        // 2 Hill Climbing
-        // 3 Simulated Annealing
-        // 11 Prepartitioned Repeated Random
-        // 12 Prepartitioned Hill Climbing
-        // 13 Prepartitioned Simulated Annealing
         printf("Usage: ./partition 0 algorithm inputfile\n");
     }
 
+    // argv[] -> variables
     uint8_t debug = std::stoi(argv[1]);
     uint8_t algo = std::stoi(argv[2]);
     std::vector<uint64_t> input;
 
+    // I/O
     std::string line;
     std::ifstream file(argv[3]);
     if (file.is_open()){
         while (getline(file, line)) {
-            input.push_back(std::stol(line));
+            input.push_back(std::stoll(line));
         }
         file.close();
     }
 
+    // debug - run all tests once
+    if (debug) {
+        printf("Karmarkar-Karp: %llu\n", karmarkar_karp(input));                                    // :)
+        printf("Repeated Random: %llu\n", repeated_random_signs(input));                            // :)
+        printf("Hill-Climbing: %llu\n", hill_climbing_signs(input));                                // :)
+        printf("Annealing: %llu\n", simulated_annealing_signs(input));                              // :)
+        printf("Prepartition Repeated Random: %llu\n", repeated_random_prepartition(input));        // :)
+        printf("Prepartition Hill-Climbing: %llu\n", hill_climbing_prepartition(input));            // :)
+        printf("Prepartition Simulated Annealing: %llu\n", simulated_annealing_prepartition(input));// :D
+        return 0;
+    }
+
+    // else run specified algorithm according to:
+    // 0 Karmarkar-Karp
+    // 1 Repeated Random
+    // 2 Hill Climbing
+    // 3 Simulated Annealing
+    // 11 Prepartitioned Repeated Random
+    // 12 Prepartitioned Hill Climbing
+    // 13 Prepartitioned Simulated Annealing
     if (algo == 0) {
         printf("%llu\n", karmarkar_karp(input));       
     } else if (algo == 1) {
@@ -448,15 +423,5 @@ int main(int argc, char* argv[]) {
     } else if (algo == 13) {
         printf("%llu\n", simulated_annealing_prepartition(input));
     }
-
-
-    
-    //printf("Karmarkar-Karp: %llu\n", karmarkar_karp(input));                                    // :)
-    //printf("Repeated Random: %llu\n", repeated_random_signs(input));                            // :)
-    //printf("Hill-Climbing: %llu\n", hill_climbing_signs(input));                                // :)
-    //printf("Annealing: %llu\n", simulated_annealing_signs(input));                              // :)
-    //printf("Prepartition Repeated Random: %llu\n", repeated_random_prepartition(input));        // :)
-    //printf("Prepartition Hill-Climbing: %llu\n", hill_climbing_prepartition(input));            // :)
-    //printf("Prepartition Simulated Annealing: %llu\n", simulated_annealing_prepartition(input));// :D
     return 0;
 }
